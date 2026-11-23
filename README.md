@@ -19,10 +19,10 @@ A read-only review tool for saved stock-allocation runs. A merchandiser signs in
 |---|---|---|
 | .NET SDK | 10.0.x | `dotnet --list-sdks` |
 | EF Core CLI | 10.x | `dotnet tool install --global dotnet-ef` (or `dotnet tool update --global dotnet-ef`) |
-| Node.js | 22 LTS (npm 10+) | `node -v` |
-| PostgreSQL | 15+ (tested with 17) | `psql --version` |
+| Node.js | 22 or 24 LTS (npm 10+) | `node -v` |
+| PostgreSQL | 15+ (tested with 18) | pgAdmin connects to `localhost:5432` |
 
-Docker is **not** required.
+Docker is **not** required. Tested on Windows 11 with Visual Studio 2026 and VS Code; CI runs on Ubuntu (see `.github/workflows/ci.yml`).
 
 ## 2. Run from a clean checkout
 
@@ -52,12 +52,15 @@ dotnet user-secrets set "ConnectionStrings:Default" "Host=localhost;Port=5432;Da
 cd ../../..
 ```
 
-**2.2 Schema and seed data.** In Development the API applies EF migrations and seeds data when it starts (`Database:MigrateOnStartup` and `Seed:Enabled` are both `true`). To apply the schema yourself instead:
+**2.2 Schema and seed data.** The EF Core migration is included in the repository (`backend/src/AllocationReview.Api/Migrations`). In Development the API applies it and seeds data when it starts (`Database:MigrateOnStartup` and `Seed:Enabled` are both `true`), so no manual step is needed. To apply the schema yourself instead:
 
 ```powershell
 cd backend
+dotnet tool install --global dotnet-ef   # once
 dotnet ef database update --project src/AllocationReview.Api
 ```
+
+In Visual Studio's Package Manager Console (default project `AllocationReview.Api`) the equivalent is `Update-Database`.
 
 The seed is idempotent. It creates the `Admin` and `Viewer` roles, two demo users, and the two synthetic runs R-101 and R-102 from the brief.
 
@@ -88,6 +91,8 @@ The Angular dev server proxies `/api` to the API (`frontend/proxy.conf.json`), s
 These are local demo credentials, supplied through `appsettings.Development.json`. Change them with user-secrets or environment variables (`Seed__AdminPassword`, `Seed__ViewerPassword`). Seeding is off by default outside Development.
 
 ## 3. Tests
+
+Every push runs both suites and the production build in GitHub Actions (`.github/workflows/ci.yml`) on a clean Ubuntu runner.
 
 ```powershell
 # API: calculation, pagination, authorization, acceptance data (in-memory SQLite, no PostgreSQL needed)
@@ -254,7 +259,17 @@ The brief puts cloud deployment out of scope, but a `Dockerfile` is included. Re
 3. Set these environment variables: `DATABASE_URL` (the internal URL), `Database__MigrateOnStartup=true`, `Seed__Enabled=true`, `Seed__AdminPassword`, `Seed__ViewerPassword`.
 4. Deploy and open the service URL.
 
-## 13. Known limitations
+## 13. Windows setup notes (issues met during development)
+
+| Symptom | Cause | Resolution in this repo |
+|---|---|---|
+| "An Application Control policy has blocked this file" on F5 | Windows 11 Smart App Control blocks unsigned `.exe` build output | `<UseAppHost>false</UseAppHost>` in the API project, so it runs through the signed `dotnet` host |
+| Test Explorer shows tests as "Not Run"; "Part of this app has been blocked" | Smart App Control also blocks the test host loading unsigned DLLs | Tests run in CI; locally they run on any machine without Smart App Control |
+| `Add-Migration` stops after "Build succeeded" with NU1902 | Transitive `System.Security.Cryptography.Pkcs` had a known vulnerability, and the console treats the warning as fatal | Pinned the patched package and set `<NuGetAuditMode>direct</NuGetAuditMode>` |
+| `npm` "running scripts is disabled on this system" | PowerShell execution policy | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` (or use `npm.cmd`) |
+| Docker Desktop could not start WSL 2 | VM platform unavailable on the dev machine | Not needed: PostgreSQL runs natively; the Dockerfile is only for optional hosting |
+
+## 14. Known limitations
 
 - There's no CSRF token on the two POST endpoints. `SameSite=Strict` plus same-origin hosting mitigates this, and an antiforgery token would be added if the API were ever served cross-origin.
 - PostgreSQL-specific behaviour is not covered by an automated test suite (see trade-offs).

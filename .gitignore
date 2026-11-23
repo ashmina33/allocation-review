@@ -20,3 +20,4 @@ appsettings.Local.json
 .idea/
 .vscode/*
 !.vscode/extensions.json
+publish/
