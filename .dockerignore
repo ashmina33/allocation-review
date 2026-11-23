@@ -1,0 +1,6 @@
+**/bin
+**/obj
+**/node_modules
+frontend/.angular
+backend/src/AllocationReview.Api/wwwroot
+.git

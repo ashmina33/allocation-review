@@ -1,0 +1,35 @@
+### Manual acceptance checks (VS Code REST Client / Visual Studio / Rider)
+@base = http://localhost:5080
+
+### 1. Unauthenticated -> 401
+GET {{base}}/api/runs
+
+### 2. Sign in as Viewer
+POST {{base}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "viewer@demo.local", "password": "Viewer#2026demo" }
+
+### 3. Viewer -> 403
+GET {{base}}/api/runs
+
+### 4. Sign in as Admin
+POST {{base}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "admin@demo.local", "password": "Admin#2026demo" }
+
+### 5. History (R-102 first)
+GET {{base}}/api/runs?page=1&pageSize=20
+
+### 6. Invalid pagination -> 400
+GET {{base}}/api/runs?page=0&pageSize=500
+
+### 7. Review R-102: 3 gaps, 5 units
+GET {{base}}/api/runs/R-102
+
+### 8. Exceptions only: G-01 and G-03
+GET {{base}}/api/runs/R-102?exceptionsOnly=true
+
+### 9. Unknown run -> 404
+GET {{base}}/api/runs/R-999
